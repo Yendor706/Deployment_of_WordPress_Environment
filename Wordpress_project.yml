@@ -1,0 +1,77 @@
+- name: "step1"
+  hosts: wordpress
+  vars:
+  tasks:
+          - name: "install mysql"
+            apt:
+                    name: mysql-server
+                    update_cache: yes        
+          - name: "Install Dependencies"          
+            apt:
+                    name: "{{ item }}"
+            loop:
+                            - apache2
+                            - ghostscript
+                            - libapache2-mod-php
+                            - php
+                            - php-bcmath
+                            - php-curl
+                            - php-imagick
+                            - php-intl
+                            - php-json
+                            - php-mbstring
+                            - php-mysql
+                            - php-xml
+                            - php-zip
+                            - python3-pymysql
+- name: "install wordpress"
+  hosts: wordpress
+  tasks:
+          - name: "manage the installation directory"
+            file:
+                    path: /srv/www
+                    state: directory
+                    recurse: yes
+                    owner: www-data
+                    group: www-data
+          - name: "Download and extract the wordpress installation file"
+            unarchive:
+                src: https://wordpress.org/latest.tar.gz
+                dest: /srv/www
+                remote_src: yes
+- name: "configure Apache for wordpress"
+  hosts: wordpress
+  tasks:
+          - name: "define apache configuration file"
+            copy:
+                    src: ~/Wordpress_Project/wordpress-apache-config
+                    dest: /etc/apache2/sites-available/wordpress.conf  
+          - name: "Enable apache modules"
+            shell: "{{ item }}"
+            loop:
+                    - a2ensite wordpress
+                    - a2enmod rewrite
+                    - a2dissite 000-default
+                    - service apache2 reload
+- name: "create DB and manage DB user and add DB details to WP config"
+  hosts: wordpress
+  tasks:
+          - name: "create required DB"
+            mysql_db:
+                  name: wordpress
+                  state: present
+                  login_unix_socket: /var/run/mysqld/mysqld.sock
+          - name: "Manage DB user and permissions"
+            mysql_user:
+                  name: wordpress
+                  password: "password"
+                  priv: '*.*:ALL'
+                  state: present
+                  login_unix_socket: /var/run/mysqld/mysqld.sock
+- name: "wordpress configuration file"
+  hosts: wordpress
+  tasks:
+          - name: "copy WP config file"
+            copy:
+                    src: ~/Wordpress_Project/wp-config.php
+                    dest: /srv/www/wordpress/wp-config.php        
